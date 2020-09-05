@@ -8,6 +8,7 @@ void setup()
 
 
   config_wifi();
+  config_ota();
   config_time();
   config_bq27441();
 }
@@ -36,22 +37,22 @@ void config_ota()
 
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
   {
-    Dprint.printf("Progress: %u%%\r", (progress / (total / 100)));
+    Dprint.printf("Progress: %u%%\n", (progress / (total / 100)));
   });
 
   ArduinoOTA.onError([](ota_error_t error) 
   {
-    Serial.printf("Error[%u]: ", error);
+    Dprint.printf("Error[%u]: ", error);
     if (error == OTA_AUTH_ERROR) {
-      Serial.println("Auth Failed");
+      Dprint.println("Auth Failed");
     } else if (error == OTA_BEGIN_ERROR) {
-      Serial.println("Begin Failed");
+      Dprint.println("Begin Failed");
     } else if (error == OTA_CONNECT_ERROR) {
-      Serial.println("Connect Failed");
+      Dprint.println("Connect Failed");
     } else if (error == OTA_RECEIVE_ERROR) {
-      Serial.println("Receive Failed");
+      Dprint.println("Receive Failed");
     } else if (error == OTA_END_ERROR) {
-      Serial.println("End Failed");
+      Dprint.println("End Failed");
     }
   });
 

@@ -36,6 +36,7 @@ const uint16_t TAPER_CURRENT = 33;
 
 // Prototypes
 void config_wifi(void);
+void config_ota(void);
 void config_time(void);
 void config_bq27441(void);
 
