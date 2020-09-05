@@ -14,6 +14,7 @@ void setup()
 
 void config_ota()
 {
+  Update.installSignature(&hash, &sign);
   ArduinoOTA.onStart([]()
   {
     String type;
@@ -219,7 +220,7 @@ void printBatteryStats()
     return;
   }
   last_status = millis();
-  
+
   bool changed = false;
   // Read battery stats from the BQ27441-G1A
   soc = check_changed(soc, lipo.soc(), &changed);                             // Read state-of-charge (%)

@@ -17,6 +17,12 @@
 #include <Timezone.h>
 #include <DebugPrint.h>
 
+// OTA
+#define OTA_PUBKEY "-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArCsYpWoithi1pR0IEBvcqkOFWf0P1y/ks9kE2kTDuMM48ZPY30bAUIzOt9PEWnyMBy3LDjf4pF+AtYbtn4pmT6sTRJIQbC/nYIX6by8dsclSIuCzRyyLA/Z+6lBl98Mh8sXvkhTt/f4CX6snyIPxOjMETqL6+C2nwPPqGDwLP8izZz6n4bx8MoSXVIaE+jmahwPKY+71WVLeDGG0WXuznU3wKQBAIhuchEIYEHzXnrflNHqON2kKYB/q+lkK3/aOh3jpdiHz8/x4gwf6gut/vyMrTzRJH9/9pZe3xl6ty2dDvDM2QseGtOkiY4u0ZVcB0ij9LnEQudogUL0rOpQ6NQIDAQAB-----END PUBLIC KEY-----"
+BearSSL::PublicKey signPubKey(OTA_PUBKEY);
+BearSSL::HashSHA256 hash;
+BearSSL::SigningVerifier sign(&signPubKey);
+
 // Time
 const char *serverPool = "pool.ntp.org";
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};
