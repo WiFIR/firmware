@@ -12,10 +12,55 @@ void setup()
   config_bq27441();
 }
 
+void config_ota()
+{
+  ArduinoOTA.onStart([]()
+  {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH)
+    {
+      type = "sketch";
+    }
+    else // U_FS
+    {
+      type = "filesystem";
+    }
+    Dprint.println("OTA firmware started. Target: " + type);
+  });
+
+  ArduinoOTA.onEnd([]()
+  {
+    Dprint.println("\nEnd");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
+  {
+    Dprint.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) 
+  {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) {
+      Serial.println("Auth Failed");
+    } else if (error == OTA_BEGIN_ERROR) {
+      Serial.println("Begin Failed");
+    } else if (error == OTA_CONNECT_ERROR) {
+      Serial.println("Connect Failed");
+    } else if (error == OTA_RECEIVE_ERROR) {
+      Serial.println("Receive Failed");
+    } else if (error == OTA_END_ERROR) {
+      Serial.println("End Failed");
+    }
+  });
+
+  ArduinoOTA.begin();
+}
+
 void loop()
 {
-    printBatteryStats();
-    delay(1000);
+  ArduinoOTA.handle();
+  printBatteryStats();
 }
 
 void config_wifi()
@@ -166,16 +211,23 @@ int check_changed(int previous, int current, bool * status)
 
 unsigned int soc, volts, fullCapacity, capacity, temp;
 int current, power, health;
+unsigned long last_status = 0;
 void printBatteryStats()
 {
+  if (millis() - last_status < 500)
+  {
+    return;
+  }
+  last_status = millis();
+  
   bool changed = false;
   // Read battery stats from the BQ27441-G1A
   soc = check_changed(soc, lipo.soc(), &changed);                             // Read state-of-charge (%)
   volts = check_changed(volts, lipo.voltage(), &changed);                     // Read battery voltage (mV)
-  current = check_changed(current, lipo.current(AVG), &changed);              // Read average current (mA)
+  current = lipo.current(AVG);                                                // Read average current (mA)
   fullCapacity = check_changed(fullCapacity, lipo.capacity(FULL), &changed);  // Read full capacity (mAh)
   capacity = check_changed(capacity, lipo.capacity(REMAIN), &changed);        // Read remaining capacity (mAh)
-  power = check_changed(power, lipo.power(), &changed);                       // Read average power draw (mW)
+  power = lipo.power()                                ;                       // Read average power draw (mW)
   health = check_changed(health, lipo.soh(), &changed);                       // Read state-of-health (%)
   temp = check_changed(temp,lipo.temperature(), &changed);                    // Reads the battery temperature
 

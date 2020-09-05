@@ -9,6 +9,8 @@
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 
+#include <ArduinoOTA.h>
+
 #include <SparkFunBQ27441.h>
 
 #include <TimeLib.h>
