@@ -4,9 +4,11 @@
 
 void setup() 
 {
-  Dprint.begin(115200, 23);
+  Dprint.begin(115200, 23, true);
+
 
   config_wifi();
+  config_time();
   config_bq27441();
 }
 
@@ -22,6 +24,7 @@ void config_wifi()
   WiFiManager wifiManager;
 
   pinMode(CLEAR_PIN, INPUT_PULLUP);
+  pinMode(D4, OUTPUT);
   delay(10);
 
   // Check if the user reset via the factory-reset button
@@ -29,10 +32,13 @@ void config_wifi()
   {
     // Wait 5 seconds
     uint32_t delay_start = millis();
-    while(!digitalRead(CLEAR_PIN) && millis() - delay_start > 5000)
+    while(!digitalRead(CLEAR_PIN) && millis() - delay_start < 5000)
     {
-      delay(50);
+      digitalWrite(D4, !digitalRead(D4));
+      delay(200);
     }
+    // Turn on D4 to signal reset
+    digitalWrite(D4, LOW);
     // Ensure any button bounce has cleared in case the button was released prematurely.
     delay(10);
 
@@ -44,6 +50,38 @@ void config_wifi()
   }
 
   wifiManager.autoConnect("WiFIR");
+  
+  //Flash the LED
+  for (int i=0; i<10; i++)
+  {
+    digitalWrite(D4, !digitalRead(D4));
+    delay(50);
+  }
+  // Turn off D4
+  digitalWrite(D4, HIGH);
+}
+
+void config_time()
+{
+  Dprint.print(F("Syncronizing time with NTP"));
+  timeClient.begin();
+
+  while (year(timeClient.getEpochTime()) == 1970)
+  {
+    timeClient.update();
+    delay(500);
+    Dprint.print(F("."));
+    /* code */
+  }
+  Dprint.println();
+  setTime(CE.toLocal(timeClient.getEpochTime()));
+  
+}
+
+void update_time()
+{
+  timeClient.update();
+  setTime(CE.toLocal(timeClient.getEpochTime()));
 }
 
 void config_bq27441()
@@ -51,17 +89,16 @@ void config_bq27441()
   if (!lipo.begin()) // begin() will return true if communication is successful
   {
       // If communication fails, print an error message and loop forever.
-      Dprint.println("Error: Unable to communicate with BQ27441.");
-      Dprint.println("  Check wiring and try again.");
-      Dprint.println("  (Battery must be plugged into Battery Babysitter!)");
-      while (1)
-          ;
+      Dprint.println(F("Error: Unable to communicate with BQ27441."));
+      Dprint.println(F("  Check wiring and try again."));
+      Dprint.println(F("  (Battery must be plugged into Battery Babysitter!)"));
+      while (1){delay(0);}
   }
-  Dprint.println("Connected to BQ27441!");
+  Dprint.println(F("Connected to BQ27441!"));
 
   if (lipo.itporFlag()) //write config parameters only if needed
   {
-      Dprint.println("Writing gague config");
+      Dprint.println(F("Writing gague config"));
 
       lipo.enterConfig();                 // To configure the values below, you must be in config mode
       lipo.setCapacity(BATTERY_CAPACITY); // Set the battery capacity
@@ -87,7 +124,7 @@ void config_bq27441()
   }
   else
   {
-      Dprint.println("Using existing gague config");
+      Dprint.println(F("Using existing gague config"));
   }
 }
 
@@ -118,19 +155,32 @@ void schlep(uint64_t duration)
   ESP.deepSleepInstant(duration);
 }
 
+int check_changed(int previous, int current, bool * status)
+{
+  if (previous != current)
+  {
+    *status = true;
+  }
+  return current;
+}
+
+unsigned int soc, volts, fullCapacity, capacity, temp;
+int current, power, health;
 void printBatteryStats()
 {
-    // Read battery stats from the BQ27441-G1A
-    unsigned int soc = lipo.soc();                        // Read state-of-charge (%)
-    unsigned int volts = lipo.voltage();                  // Read battery voltage (mV)
-    int current = lipo.current(AVG);                      // Read average current (mA)
-    unsigned int fullCapacity = lipo.capacity(FULL);      // Read full capacity (mAh)
-    unsigned int capacity = lipo.capacity(REMAIN);        // Read remaining capacity (mAh)
-    int power = lipo.power();                             // Read average power draw (mW)
-    int health = lipo.soh();                              // Read state-of-health (%)
-    unsigned int temp = lipo.temperature();               // Reads the battery temperature
+  bool changed = false;
+  // Read battery stats from the BQ27441-G1A
+  soc = check_changed(soc, lipo.soc(), &changed);                             // Read state-of-charge (%)
+  volts = check_changed(volts, lipo.voltage(), &changed);                     // Read battery voltage (mV)
+  current = check_changed(current, lipo.current(AVG), &changed);              // Read average current (mA)
+  fullCapacity = check_changed(fullCapacity, lipo.capacity(FULL), &changed);  // Read full capacity (mAh)
+  capacity = check_changed(capacity, lipo.capacity(REMAIN), &changed);        // Read remaining capacity (mAh)
+  power = check_changed(power, lipo.power(), &changed);                       // Read average power draw (mW)
+  health = check_changed(health, lipo.soh(), &changed);                       // Read state-of-health (%)
+  temp = check_changed(temp,lipo.temperature(), &changed);                    // Reads the battery temperature
 
-    
+  if(changed)
+  {
     // Insert . into temp
     String tempS = String(temp).substring(0,2) + "." + String(temp).substring(2);
 
@@ -158,4 +208,5 @@ void printBatteryStats()
 
     // Print the string
     Dprint.println(toPrint);
+  }
 }
