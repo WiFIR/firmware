@@ -6,11 +6,17 @@ void setup()
 {
   Dprint.begin(115200, 23, true);
 
+  // Configure pins
+  for (int i=0; i<sizeof(pins)/sizeof(pins[0]); i++)
+  {
+    pinMode(pins[i][0], pins[i][1]);
+  }
 
   config_wifi();
   config_ota();
   config_time();
   config_bq27441();
+  config_ac();
 }
 
 void config_ota()
@@ -173,6 +179,12 @@ void config_bq27441()
   {
       Dprint.println(F("Using existing gague config"));
   }
+}
+
+void config_ac()
+{
+	ac.begin();
+	ac.setMode(kPanasonicRkr);
 }
 
 char * uintToStr( const uint64_t num, char *str )
