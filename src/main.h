@@ -21,6 +21,8 @@
 #include <IRsend.h>
 #include <ir_Panasonic.h>
 
+#include <AsyncMqttClient.h>
+
 // Pin mapping
 enum pin_map {
 	P_IR_I     = D4,
@@ -61,6 +63,7 @@ void config_ota(void);
 void config_time(void);
 void config_bq27441(void);
 void config_ac(void);
+void config_mqtt(void);
 
 void update_time(void);
 
@@ -75,7 +78,10 @@ time_t ntp_sync();
 DebugPrint Dprint(&Serial, false);
 WiFiUDP ntpUDP;
 
-IRPanasonicAc ac()
+IRPanasonicAc ac(P_IR_O);
+
+// 
+AsyncMqttClient mqtt_client;
 
 // Central European timezone with DST rules applied
 Timezone CE(CEST, CET);

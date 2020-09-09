@@ -17,52 +17,7 @@ void setup()
   config_time();
   config_bq27441();
   config_ac();
-}
-
-void config_ota()
-{
-  Update.installSignature(&hash, &sign);
-  ArduinoOTA.onStart([]()
-  {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-    {
-      type = "sketch";
-    }
-    else // U_FS
-    {
-      type = "filesystem";
-    }
-    Dprint.println("OTA firmware started. Target: " + type);
-  });
-
-  ArduinoOTA.onEnd([]()
-  {
-    Dprint.println("\nEnd");
-  });
-
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
-  {
-    Dprint.printf("Progress: %u%%\n", (progress / (total / 100)));
-  });
-
-  ArduinoOTA.onError([](ota_error_t error) 
-  {
-    Dprint.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) {
-      Dprint.println("Auth Failed");
-    } else if (error == OTA_BEGIN_ERROR) {
-      Dprint.println("Begin Failed");
-    } else if (error == OTA_CONNECT_ERROR) {
-      Dprint.println("Connect Failed");
-    } else if (error == OTA_RECEIVE_ERROR) {
-      Dprint.println("Receive Failed");
-    } else if (error == OTA_END_ERROR) {
-      Dprint.println("End Failed");
-    }
-  });
-
-  ArduinoOTA.begin();
+  config_mqtt();
 }
 
 void loop()
@@ -112,6 +67,52 @@ void config_wifi()
   }
   // Turn off D4
   digitalWrite(D4, HIGH);
+}
+
+void config_ota()
+{
+  Update.installSignature(&hash, &sign);
+  ArduinoOTA.onStart([]()
+  {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH)
+    {
+      type = "sketch";
+    }
+    else // U_FS
+    {
+      type = "filesystem";
+    }
+    Dprint.println("OTA firmware started. Target: " + type);
+  });
+
+  ArduinoOTA.onEnd([]()
+  {
+    Dprint.println("\nEnd");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
+  {
+    Dprint.printf("Progress: %u%%\n", (progress / (total / 100)));
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) 
+  {
+    Dprint.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) {
+      Dprint.println("Auth Failed");
+    } else if (error == OTA_BEGIN_ERROR) {
+      Dprint.println("Begin Failed");
+    } else if (error == OTA_CONNECT_ERROR) {
+      Dprint.println("Connect Failed");
+    } else if (error == OTA_RECEIVE_ERROR) {
+      Dprint.println("Receive Failed");
+    } else if (error == OTA_END_ERROR) {
+      Dprint.println("End Failed");
+    }
+  });
+
+  ArduinoOTA.begin();
 }
 
 void config_time()
@@ -185,6 +186,11 @@ void config_ac()
 {
 	ac.begin();
 	ac.setMode(kPanasonicRkr);
+}
+
+void config_mqtt()
+{
+  mqtt_client.connect();
 }
 
 char * uintToStr( const uint64_t num, char *str )
