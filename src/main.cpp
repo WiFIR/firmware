@@ -18,6 +18,7 @@ void setup()
   config_bq27441();
   config_ac();
   config_mqtt();
+  temp_sens.enableOneShotMode();
 }
 
 void loop()
@@ -229,7 +230,8 @@ int check_changed(int previous, int current, bool * status)
   return current;
 }
 
-unsigned int soc, volts, fullCapacity, capacity, temp;
+unsigned int soc, volts, fullCapacity, capacity, temp_int;
+float temp_ext;
 int current, power, health;
 unsigned long last_status = 0;
 void printBatteryStats()
@@ -249,12 +251,22 @@ void printBatteryStats()
   capacity = check_changed(capacity, lipo.capacity(REMAIN), &changed);        // Read remaining capacity (mAh)
   power = lipo.power()                                ;                       // Read average power draw (mW)
   health = check_changed(health, lipo.soh(), &changed);                       // Read state-of-health (%)
-  temp = check_changed(temp,lipo.temperature(), &changed);                    // Reads the battery temperature
+  temp_int = check_changed(temp_int, lipo.temperature(), &changed);           // Reads the battery temperature
+
+  temp_sens.startOneShotConversion();
+  delay(100);
+
+  float read = temp_sens.readTemperatureC();
+  if (temp_ext != read)
+  {
+    temp_ext = read;
+    changed = true;
+  }
 
   if(changed)
   {
     // Insert . into temp
-    String tempS = String(temp).substring(0,2) + "." + String(temp).substring(2);
+    String tempS = String(temp_int).substring(0,2) + "." + String(temp_int).substring(2);
 
     // Assemble a string to print
     String toPrint = String(soc) + "% | ";
@@ -265,6 +277,7 @@ void printBatteryStats()
     toPrint += String(power) + " mW | ";
     toPrint += String(health) + "% | ";
     toPrint += String(tempS) + " °C ";
+    toPrint += String(temp_ext) + " °C ";
 
     //fast charging allowed
     if (lipo.chgFlag())
