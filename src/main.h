@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 
 
 #include <NTPClient.h>
@@ -20,6 +21,8 @@
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <ir_Panasonic.h>
+
+#include <Temperature_LM75_Derived.h>
 
 #include <AsyncMqttClient.h>
 
@@ -82,6 +85,8 @@ IRPanasonicAc ac(P_IR_O);
 
 // 
 AsyncMqttClient mqtt_client;
+
+ON_NCT75 temp_sens(0x4F);
 
 // Central European timezone with DST rules applied
 Timezone CE(CEST, CET);
