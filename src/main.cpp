@@ -29,7 +29,7 @@ void loop()
 
 void config_wifi()
 {
-  WiFi.hostname("WiFIR");
+  WiFi.hostname("WiFIR_" + String(ESP.getChipId(), HEX));
   WiFiManager wifiManager;
 
   pinMode(CLEAR_PIN, INPUT_PULLUP);
