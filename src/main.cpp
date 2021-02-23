@@ -1,278 +1,130 @@
-#include "main.h"
+#include "main.hpp"
 
-#define CLEAR_PIN D7
+/*************************** Sketch Code ************************************/
 
 void setup() 
 {
-  Dprint.begin(115200, 23, true);
-
-  // Configure pins
-  for (int i=0; i<sizeof(pins)/sizeof(pins[0]); i++)
-  {
-    pinMode(pins[i][0], pins[i][1]);
-  }
-
-  config_wifi();
-  config_ota();
-  config_time();
-  config_bq27441();
-  config_ac();
-}
-
-void config_ota()
-{
-  Update.installSignature(&hash, &sign);
-  ArduinoOTA.onStart([]()
-  {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-    {
-      type = "sketch";
-    }
-    else // U_FS
-    {
-      type = "filesystem";
-    }
-    Dprint.println("OTA firmware started. Target: " + type);
-  });
-
-  ArduinoOTA.onEnd([]()
-  {
-    Dprint.println("\nEnd");
-  });
-
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
-  {
-    Dprint.printf("Progress: %u%%\n", (progress / (total / 100)));
-  });
-
-  ArduinoOTA.onError([](ota_error_t error) 
-  {
-    Dprint.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) {
-      Dprint.println("Auth Failed");
-    } else if (error == OTA_BEGIN_ERROR) {
-      Dprint.println("Begin Failed");
-    } else if (error == OTA_CONNECT_ERROR) {
-      Dprint.println("Connect Failed");
-    } else if (error == OTA_RECEIVE_ERROR) {
-      Dprint.println("Receive Failed");
-    } else if (error == OTA_END_ERROR) {
-      Dprint.println("End Failed");
-    }
-  });
-
-  ArduinoOTA.begin();
-}
-
-void loop()
-{
-  ArduinoOTA.handle();
-  printBatteryStats();
-}
-
-void config_wifi()
-{
-  WiFi.hostname("WiFIR");
-  WiFiManager wifiManager;
-
-  pinMode(CLEAR_PIN, INPUT_PULLUP);
-  pinMode(D4, OUTPUT);
+  Serial.begin(115200);
+  Serial.println('\n');
   delay(10);
 
-  // Check if the user reset via the factory-reset button
-  if(!digitalRead(CLEAR_PIN)) // If reset via clear pin
-  {
-    // Wait 5 seconds
-    uint32_t delay_start = millis();
-    while(!digitalRead(CLEAR_PIN) && millis() - delay_start < 5000)
-    {
-      digitalWrite(D4, !digitalRead(D4));
-      delay(200);
-    }
-    // Turn on D4 to signal reset
-    digitalWrite(D4, LOW);
-    // Ensure any button bounce has cleared in case the button was released prematurely.
-    delay(10);
+  LittleFS.begin();
 
-    // If button still held, clear WiFi settings.
-    if(!digitalRead(CLEAR_PIN))
-    {
-      wifiManager.resetSettings();
-    }
-  }
+  Serial.println(F("Adafruit IO MQTTS (SSL/TLS) Example using BearSSL certstore"));
 
-  wifiManager.autoConnect("WiFIR");
-  
-  //Flash the LED
-  for (int i=0; i<10; i++)
-  {
-    digitalWrite(D4, !digitalRead(D4));
-    delay(50);
-  }
-  // Turn off D4
-  digitalWrite(D4, HIGH);
-}
+  // Connect to WiFi access point.
+  Serial.println(); Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(WLAN_SSID);
 
-void config_time()
-{
-  Dprint.print(F("Syncronizing time with NTP"));
-  timeClient.begin();
+  WiFi.begin(WLAN_SSID, WLAN_PASS);
 
-  while (year(timeClient.getEpochTime()) == 1970)
-  {
-    timeClient.update();
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Dprint.print(F("."));
-    /* code */
+    Serial.print(".");
   }
-  Dprint.println();
-  setTime(CE.toLocal(timeClient.getEpochTime()));
-  
-}
+  Serial.println();
 
-void update_time()
-{
-  timeClient.update();
-  setTime(CE.toLocal(timeClient.getEpochTime()));
-}
+  Serial.println("WiFi connected");
+  Serial.println("IP address: "); Serial.println(WiFi.localIP());
 
-void config_bq27441()
-{
-  if (!lipo.begin()) // begin() will return true if communication is successful
+  set_clock(); // Required for X.509 validation
+  int certs = init_certStore();
+  if(certs == 0)
   {
-      // If communication fails, print an error message and loop forever.
-      Dprint.println(F("Error: Unable to communicate with BQ27441."));
-      Dprint.println(F("  Check wiring and try again."));
-      Dprint.println(F("  (Battery must be plugged into Battery Babysitter!)"));
-      while (1){delay(0);}
-  }
-  Dprint.println(F("Connected to BQ27441!"));
-
-  if (lipo.itporFlag()) //write config parameters only if needed
-  {
-      Dprint.println(F("Writing gague config"));
-
-      lipo.enterConfig();                 // To configure the values below, you must be in config mode
-      lipo.setCapacity(BATTERY_CAPACITY); // Set the battery capacity
-
-      /*
-          Design Energy should be set to be Design Capacity × 3.7 if using the bq27441-G1A or Design
-          Capacity × 3.8 if using the bq27441-G1B
-      */
-      lipo.setDesignEnergy(BATTERY_CAPACITY * 3.7f);
-
-      /*
-          Terminate Voltage should be set to the minimum operating voltage of your system. This is the target
-          where the gauge typically reports 0% capacity
-      */
-      lipo.setTerminateVoltage(TERMINATE_VOLTAGE);
-
-      /*
-          Taper Rate = Design Capacity / (0.1 * Taper Current)
-      */
-      lipo.setTaperRate(10 * BATTERY_CAPACITY / TAPER_CURRENT);
-
-      lipo.exitConfig(); // Exit config mode to save changes
+    while(true)
+    {
+      Serial.println("Cert initialization failed. Can't do anything");
+      delay(10000);
+    }
   }
   else
   {
-      Dprint.println(F("Using existing gague config"));
+    Serial.printf("Found %d certs in certificate store\n", certs);
   }
+
 }
 
-void config_ac()
-{
-	ac.begin();
-	ac.setMode(kPanasonicRkr);
-}
+uint32_t x=0;
 
-char * uintToStr( const uint64_t num, char *str )
-{
-  uint8_t i = 0;
-  uint64_t n = num;
- 
-  do
-    i++;
-  while ( n /= 10 );
- 
-  str[i] = '\0';
-  n = num;
- 
-  do
-    str[--i] = ( n % 10 ) + '0';
-  while ( n /= 10 );
+void loop() {
+  // Ensure the connection to the MQTT server is alive (this will make the first
+  // connection and automatically reconnect when disconnected).  See the MQTT_connect
+  // function definition further below.
+  MQTT_connect();
 
-  return str;
-}
-
-void schlep(uint64_t duration)
-{
-  char dur[21];
-  uintToStr(duration, dur);
-  Dprint.println("Sleeping for " + String(dur) + "uS");
-  ESP.deepSleepInstant(duration);
-}
-
-int check_changed(int previous, int current, bool * status)
-{
-  if (previous != current)
-  {
-    *status = true;
+  // Now we can publish stuff!
+  Serial.print(F("\nSending val "));
+  Serial.print(x);
+  Serial.print(F(" to test feed..."));
+  if (! test.publish(x++)) {
+    Serial.println(F("Failed"));
+  } else {
+    Serial.println(F("OK!"));
   }
-  return current;
+
+  // wait a couple seconds to avoid rate limit
+  delay(20000);
+
 }
 
-unsigned int soc, volts, fullCapacity, capacity, temp;
-int current, power, health;
-unsigned long last_status = 0;
-void printBatteryStats()
-{
-  if (millis() - last_status < 500)
-  {
+// Function to connect and reconnect as necessary to the MQTT server.
+// Should be called in the loop function and it will take care if connecting.
+void MQTT_connect() {
+  int8_t ret;
+
+  // Stop if already connected.
+  if (mqtt.connected()) {
     return;
   }
-  last_status = millis();
 
-  bool changed = false;
-  // Read battery stats from the BQ27441-G1A
-  soc = check_changed(soc, lipo.soc(), &changed);                             // Read state-of-charge (%)
-  volts = check_changed(volts, lipo.voltage(), &changed);                     // Read battery voltage (mV)
-  current = lipo.current(AVG);                                                // Read average current (mA)
-  fullCapacity = check_changed(fullCapacity, lipo.capacity(FULL), &changed);  // Read full capacity (mAh)
-  capacity = check_changed(capacity, lipo.capacity(REMAIN), &changed);        // Read remaining capacity (mAh)
-  power = lipo.power()                                ;                       // Read average power draw (mW)
-  health = check_changed(health, lipo.soh(), &changed);                       // Read state-of-health (%)
-  temp = check_changed(temp,lipo.temperature(), &changed);                    // Reads the battery temperature
+  Serial.print("Connecting to MQTT... ");
 
-  if(changed)
-  {
-    // Insert . into temp
-    String tempS = String(temp).substring(0,2) + "." + String(temp).substring(2);
-
-    // Assemble a string to print
-    String toPrint = String(soc) + "% | ";
-    toPrint += String(volts) + " mV | ";
-    toPrint += String(current) + " mA | ";
-    toPrint += String(capacity) + " / ";
-    toPrint += String(fullCapacity) + " mAh | ";
-    toPrint += String(power) + " mW | ";
-    toPrint += String(health) + "% | ";
-    toPrint += String(tempS) + " °C ";
-
-    //fast charging allowed
-    if (lipo.chgFlag())
-        toPrint += " CHG";
-
-    //full charge detected
-    if (lipo.fcFlag())
-        toPrint += " FC";
-
-    //battery is discharging
-    if (lipo.dsgFlag())
-        toPrint += " DSG";
-
-    // Print the string
-    Dprint.println(toPrint);
+  uint8_t retries = 3;
+  while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
+       Serial.println(mqtt.connectErrorString(ret));
+       Serial.println("Retrying MQTT connection in 5 seconds...");
+       mqtt.disconnect();
+       delay(5000);  // wait 5 seconds
+       retries--;
+       if (retries == 0) {
+         // basically die and wait for WDT to reset me
+         while (1);
+       }
   }
+
+  Serial.println("MQTT Connected!");
+}
+
+void set_clock() 
+{
+  configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+
+  Serial.print("Waiting for NTP time sync: ");
+  time_t now = time(nullptr);
+  while (now < 8 * 3600 * 2) {
+    delay(500);
+    Serial.print(".");
+    now = time(nullptr);
+  }
+  Serial.println("");
+  struct tm timeinfo;
+  gmtime_r(&now, &timeinfo);
+  Serial.print("Current time: ");
+  Serial.print(asctime(&timeinfo));
+}
+
+
+int init_certStore(void)
+{
+  int numCerts = certStore.initCertStore(LittleFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
+  Serial.printf("Number of CA certs read: %d\n", numCerts);
+  if (numCerts == 0) 
+  {
+    Serial.printf("No certs found. Did you run certs-from-mozilla.py and upload the LittleFS directory before running?\n");
+    return 0; // Can't connect to anything w/o certs!
+  }
+
+  client->setCertStore(&certStore);
+  return numCerts;
 }
