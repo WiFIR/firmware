@@ -42,7 +42,6 @@ void setup()
   {
     Serial.printf("Found %d certs in certificate store\n", certs);
   }
-
 }
 
 uint32_t x=0;
@@ -53,15 +52,51 @@ void loop() {
   // function definition further below.
   MQTT_connect();
 
-  // Now we can publish stuff!
-  Serial.print(F("\nSending val "));
-  Serial.print(x);
-  Serial.print(F(" to test feed..."));
-  if (! test.publish(x++)) {
-    Serial.println(F("Failed"));
-  } else {
-    Serial.println(F("OK!"));
+  // Get sensor data
+  sens_temperature->getEvent(&temperature);
+  sens_humidity->getEvent(&humidity);
+
+  uint16_t eco2, tvoc;
+  error_t rc = sgp_getter(&eco2, &tvoc);
+  
+  if (rc)
+  {
+    print_error(rc);
   }
+
+  // Publish sensor data
+
+  Serial.printf(
+    "Publishing data:\n\ttemp: %f C\n\thumi: %f %%\n\teco2: %d ppm\n\ttvoc: %d ppb\n",
+    temperature.temperature, humidity.relative_humidity, eco2, tvoc);
+
+  if (! feed_temp.publish(temperature.temperature))
+  {
+    Serial.println("Failed to publish temperature");
+  }
+
+  if (! feed_humi.publish(humidity.relative_humidity))
+  {
+    Serial.println("Failed to publish relative humidity");
+  }
+
+  if (! feed_tvoc.publish(tvoc))
+  {
+    Serial.println("Failed to publish TVOC");
+  }
+
+  if (! feed_eco2.publish(eco2))
+  {
+    Serial.println("Failed to publish eCO2");
+  }
+
+  // Check for new state
+
+    // get mqtt message with new AC state
+
+  // Send state if new
+
+    // send new state over IR if needed
 
   // wait a couple seconds to avoid rate limit
   delay(20000);
@@ -70,7 +105,8 @@ void loop() {
 
 // Function to connect and reconnect as necessary to the MQTT server.
 // Should be called in the loop function and it will take care if connecting.
-void MQTT_connect() {
+void MQTT_connect()
+{
   int8_t ret;
 
   // Stop if already connected.
@@ -98,7 +134,7 @@ void MQTT_connect() {
 
 void set_clock() 
 {
-  configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+  configTime(current_TZ, "pool.ntp.org");
 
   Serial.print("Waiting for NTP time sync: ");
   time_t now = time(nullptr);
@@ -108,12 +144,19 @@ void set_clock()
     now = time(nullptr);
   }
   Serial.println("");
-  struct tm timeinfo;
-  gmtime_r(&now, &timeinfo);
-  Serial.print("Current time: ");
-  Serial.print(asctime(&timeinfo));
+  Serial.print(ctime(&now));
 }
 
+
+
+
+void init_sensors()
+{
+  // IR
+  // Recv
+  irrecv.enableIRIn();
+  irsend.begin();
+}
 
 int init_certStore(void)
 {
@@ -128,3 +171,4 @@ int init_certStore(void)
   client->setCertStore(&certStore);
   return numCerts;
 }
+
